@@ -1,6 +1,5 @@
 <p align="center">
-
-```
+<pre>
                               /\
                  db     |  ## ||  __   |
               ___||_^__/_\_||_||__||__||_#__|____
@@ -22,7 +21,7 @@
                               | |
                        LS     | |        Cloud City, Bespin
                               | |
-```
+</pre>
 
   <h1 align="center">☁️ BesPIN</h1>
   <p align="center">
