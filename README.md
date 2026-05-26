@@ -1,8 +1,8 @@
 <p align="center">
-  <img height="450" alt="FLOCI logo" src="https://github.com/user-attachments/assets/4fbfc9b0-f4c7-4bf0-98c7-bab2ae3f64d5" />
+  <h1 align="center">☁️ BesPIN</h1>
   <p align="center">
-    <strong>Light, fluffy, and always free</strong><br />
-    No account. No auth token. No feature gates. Just <code>docker compose up</code>.
+    <strong>Platform Infrastructure Native</strong><br />
+    No account. No auth token. No carbonite. Just <code>docker compose up</code>.
   </p>
 </p>
 
@@ -18,70 +18,32 @@
 
 ---
 
-## What is Floci?
+## What is BesPIN?
 
-Floci is a free, open-source local AWS emulator for development, testing, and CI.
+**BesPIN** (**B**ackend **E**mulator for **S**erverless **P**latform **I**nfrastructure **N**atively) is a fork of [Floci](https://github.com/floci-io/floci) — a free, open-source local AWS emulator for development, testing, and CI.
 
 It gives you AWS-shaped services on your machine without requiring a cloud account, an auth token, or paid feature gates. Point your AWS SDK, CLI, Terraform, CDK, OpenTofu, or test suite at `http://localhost:4566` and keep your existing workflows.
 
-Floci is named after [floccus](https://en.wikipedia.org/wiki/Cirrocumulus_floccus), the cloud formation that looks like popcorn.
+> *Named after Bespin, the gas giant from Star Wars where Cloud City floats among the clouds — just like your local infrastructure.*
+> *LocalStack froze their community edition. Han Solo was frozen in carbonite. Coincidence? We think not.*
 
 ## Quick Start
 
-The fastest way to run Floci is with the official [CLI](https://github.com/floci-io/floci-cli)
-
-```bash
-floci start
-```
-
-Export the AWS environment variables:
-
-```bash
-eval $(floci env)
-```
-
-Use your existing AWS tools normally:
-
-```bash
-aws s3 mb s3://my-bucket
-
-aws dynamodb create-table \
-  --table-name demo-table \
-  --attribute-definitions AttributeName=pk,AttributeType=S \
-  --key-schema AttributeName=pk,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
-
-aws dynamodb list-tables
-```
-
-### Watch it run
-
-This short demo shows the CLI flow: start Floci, export the local AWS environment, run standard AWS CLI commands, and stop the emulator.
-
-https://github.com/user-attachments/assets/b55714dc-ef36-40ae-a734-cd2cadc288a8
-
-All AWS services are available at `http://localhost:4566`. Any region works. Credentials can be any non-empty values.
-
-<details>
-<summary>Prefer Docker Compose?</summary>
-
-Create a `compose.yaml` file:
+Run BesPIN with Docker Compose:
 
 ```yaml
 services:
-  floci:
+  bespin:
     image: floci/floci:latest
     ports:
       - "4566:4566"
 ```
 
-Start Floci:
-
 ```bash
 docker compose up
 ```
 
-Then configure your AWS environment manually:
+Export the AWS environment variables:
 
 ```bash
 export AWS_ENDPOINT_URL=http://localhost:4566
@@ -90,22 +52,35 @@ export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 ```
 
-</details>
+Use your existing AWS tools normally:
 
-<details>
-<summary>Using the old <code>hectorvent/floci</code> image?</summary>
-
-Update your image name:
-
-```yaml
-# Before
-image: hectorvent/floci:latest
-
-# After
-image: floci/floci:latest
+```bash
+aws s3 mb s3://my-bucket
+aws dynamodb create-table \
+  --table-name demo-table \
+  --attribute-definitions AttributeName=pk,AttributeType=S \
+  --key-schema AttributeName=pk,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST
+aws dynamodb list-tables
 ```
 
-The old `hectorvent/floci` repository no longer receives updates.
+All AWS services are available at `http://localhost:4566`. Any region works. Credentials can be any non-empty values.
+
+<details>
+<summary>With Lambda, ElastiCache and RDS (Docker socket required)</summary>
+
+```yaml
+services:
+  bespin:
+    image: floci/floci:latest
+    ports:
+      - "4566:4566"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+    environment:
+      BESPIN_STORAGE_MODE: hybrid
+```
 
 </details>
 
@@ -146,11 +121,13 @@ Choose from in-memory, persistent, hybrid, and write-ahead log storage depending
 
 </details>
 
-## Why Floci?
+## Why BesPIN?
 
-LocalStack's community edition [sunset in March 2026](https://blog.localstack.cloud/the-road-ahead-for-localstack/), requiring auth tokens and freezing security updates. Floci is the no-strings-attached alternative.
+LocalStack's community edition [sunset in March 2026](https://blog.localstack.cloud/the-road-ahead-for-localstack/), requiring auth tokens and freezing security updates. Like Han Solo in carbonite — functional in appearance, but stuck.
 
-| Capability | Floci | LocalStack Community |
+BesPIN is the no-strings-attached alternative, forked from Floci.
+
+| Capability | BesPIN | LocalStack Community |
 |---|:---:|:---:|
 | Auth token required | No | Yes |
 | Security updates | Yes | Frozen |
@@ -173,29 +150,23 @@ LocalStack's community edition [sunset in March 2026](https://blog.localstack.cl
 ```mermaid
 flowchart LR
     Client["AWS SDK / CLI"]
-
-    subgraph Floci ["Floci, port 4566"]
+    subgraph BesPIN ["BesPIN, port 4566"]
         Router["HTTP Router\nJAX-RS / Vert.x"]
-
         subgraph Stateless ["Stateless Services"]
             A["SSM · SQS · SNS\nIAM · STS · KMS\nSecrets Manager · SES\nCognito · Kinesis\nEventBridge · Scheduler · AppConfig\nCloudWatch · Step Functions\nCloudFormation · ACM · Config\nAPI Gateway · ELB v2 · Auto Scaling\nCodeDeploy · Backup · Bedrock Runtime · Route53 · Transfer"]
         end
-
         subgraph Stateful ["Stateful Services"]
             B["S3 · DynamoDB\nDynamoDB Streams"]
         end
-
         subgraph Containers ["Container Services"]
             C["Lambda\nElastiCache\nRDS\nNeptune\nECS\nEC2\nMSK\nEKS\nOpenSearch\nCodeBuild"]
-            D["Athena -> floci-duck\nDuckDB sidecar"]
+            D["Athena -> bespin-duck\nDuckDB sidecar"]
         end
-
         Router --> Stateless
         Router --> Stateful
         Router --> Containers
         Stateless & Stateful --> Store[("StorageBackend\nmemory · hybrid · persistent · wal")]
     end
-
     Docker["Docker Engine"]
     Client -->|"HTTP :4566\nAWS wire protocol"| Router
     Containers -->|"Docker API\nIAM / SigV4 auth"| Docker
@@ -203,7 +174,7 @@ flowchart LR
 
 ## Supported Services
 
-Floci supports local emulation for application services, data services, eventing, identity, infrastructure, billing, and container-backed workloads.
+BesPIN supports local emulation for application services, data services, eventing, identity, infrastructure, billing, and container-backed workloads.
 
 | Category | Services |
 |---|---|
@@ -217,7 +188,7 @@ Floci supports local emulation for application services, data services, eventing
 | Cost and billing | Pricing, Cost Explorer, Cost and Usage Reports, BCM Data Exports |
 | Backup and config | AWS Backup, AWS Config, AppConfig, AppConfigData, CloudFormation |
 
-For operation-level compatibility, see the [Services Overview](https://floci.io/floci/services/).
+For operation-level compatibility, see the [Floci Services Overview](https://floci.io/floci/services/).
 
 <details>
 <summary>Detailed service notes</summary>
@@ -275,15 +246,15 @@ For operation-level compatibility, see the [Services Overview](https://floci.io/
 | Transfer Family | In-process | Server lifecycle, user management, SSH key import, tagging |
 | Textract | In-process stub | API-compatible stubs, dummy block data, async job simulation |
 | Pricing | In-process with static snapshot | Product discovery, attributes, price list files, pagination |
-| Cost Explorer | In-process | Cost synthesized from Floci resource state and pricing snapshots |
-| Cost and Usage Reports | In-process with floci-duck sidecar | CUR 2.0 and FOCUS 1.2 columns, account-scoped storage, Parquet emission |
+| Cost Explorer | In-process | Cost synthesized from BesPIN resource state and pricing snapshots |
+| Cost and Usage Reports | In-process with bespin-duck sidecar | CUR 2.0 and FOCUS 1.2 columns, account-scoped storage, Parquet emission |
 | BCM Data Exports | In-process | Export lifecycle, executions, update and delete operations |
 
 </details>
 
 ## Real Docker Integration
 
-Floci uses real Docker containers when in-process emulation would reduce fidelity. This applies to stateful databases, connection-heavy protocols, runtimes, and build systems.
+BesPIN uses real Docker containers when in-process emulation would reduce fidelity. This applies to stateful databases, connection-heavy protocols, runtimes, and build systems.
 
 | Service | Default image | What is real |
 |---|---|---|
@@ -304,7 +275,7 @@ Floci uses real Docker containers when in-process emulation would reduce fidelit
 Docker-backed services require the Docker socket:
 
 ```bash
-docker run -d --name floci \
+docker run -d --name bespin \
   -p 4566:4566 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -u root \
@@ -315,20 +286,20 @@ docker run -d --name floci \
 
 | Variable | Default |
 |---|---|
-| `FLOCI_SERVICES_ELASTICACHE_DEFAULT_IMAGE` | `valkey/valkey:8` |
-| `FLOCI_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE` | `postgres:16-alpine` |
-| `FLOCI_SERVICES_RDS_DEFAULT_MYSQL_IMAGE` | `mysql:8.0` |
-| `FLOCI_SERVICES_RDS_DEFAULT_MARIADB_IMAGE` | `mariadb:11` |
-| `FLOCI_SERVICES_MSK_DEFAULT_IMAGE` | `redpandadata/redpanda:latest` |
-| `FLOCI_SERVICES_OPENSEARCH_DEFAULT_IMAGE` | `opensearchproject/opensearch:2` |
-| `FLOCI_SERVICES_NEPTUNE_DEFAULT_IMAGE` | `tinkerpop/gremlin-server:3.7.3` |
-| `FLOCI_SERVICES_EKS_DEFAULT_IMAGE` | `rancher/k3s:latest` |
-| `FLOCI_SERVICES_ECR_REGISTRY_IMAGE` | `registry:2` |
-| `FLOCI_ECR_BASE_URI` | `public.ecr.aws` |
+| `BESPIN_SERVICES_ELASTICACHE_DEFAULT_IMAGE` | `valkey/valkey:8` |
+| `BESPIN_SERVICES_RDS_DEFAULT_POSTGRES_IMAGE` | `postgres:16-alpine` |
+| `BESPIN_SERVICES_RDS_DEFAULT_MYSQL_IMAGE` | `mysql:8.0` |
+| `BESPIN_SERVICES_RDS_DEFAULT_MARIADB_IMAGE` | `mariadb:11` |
+| `BESPIN_SERVICES_MSK_DEFAULT_IMAGE` | `redpandadata/redpanda:latest` |
+| `BESPIN_SERVICES_OPENSEARCH_DEFAULT_IMAGE` | `opensearchproject/opensearch:2` |
+| `BESPIN_SERVICES_NEPTUNE_DEFAULT_IMAGE` | `tinkerpop/gremlin-server:3.7.3` |
+| `BESPIN_SERVICES_EKS_DEFAULT_IMAGE` | `rancher/k3s:latest` |
+| `BESPIN_SERVICES_ECR_REGISTRY_IMAGE` | `registry:2` |
+| `BESPIN_ECR_BASE_URI` | `public.ecr.aws` |
 
 ## Persistence and Storage Modes
 
-Floci can trade speed for durability depending on the workflow. Configure the default mode with `FLOCI_STORAGE_MODE`, or override storage per service.
+BesPIN can trade speed for durability depending on the workflow. Configure the default mode with `BESPIN_STORAGE_MODE`, or override storage per service.
 
 | Mode | Behavior | Best for | Durability |
 |---|---|---|:---:|
@@ -339,20 +310,16 @@ Floci can trade speed for durability depending on the workflow. Configure the de
 
 Use `memory` for fast test runs. Use `hybrid` when you want state preserved across container restarts without much overhead.
 
-For more detail, see the [Storage Configuration documentation](https://floci.io/floci/configuration/storage/).
-
 ## Multi-Account Isolation
 
-Floci supports per-account resource isolation with no extra setup. If `AWS_ACCESS_KEY_ID` is exactly 12 digits, Floci uses it as the account ID. Resources created by one account are invisible to another.
+BesPIN supports per-account resource isolation with no extra setup. If `AWS_ACCESS_KEY_ID` is exactly 12 digits, BesPIN uses it as the account ID. Resources created by one account are invisible to another.
 
 ```bash
 AWS_ACCESS_KEY_ID=111111111111 aws sqs create-queue --queue-name orders
 AWS_ACCESS_KEY_ID=222222222222 aws sqs create-queue --queue-name orders
 ```
 
-Any other key format, such as `test` or `AKIA...`, causes Floci to fall back to `FLOCI_DEFAULT_ACCOUNT_ID`, which defaults to `000000000000`.
-
-See the [Multi-Account Isolation docs](https://floci.io/floci/configuration/multi-account/).
+Any other key format, such as `test` or `AKIA...`, causes BesPIN to fall back to `BESPIN_DEFAULT_ACCOUNT_ID`, which defaults to `000000000000`.
 
 ## SDK Integration
 
@@ -368,7 +335,6 @@ var client = DynamoDbClient.builder()
     .credentialsProvider(StaticCredentialsProvider.create(
         AwsBasicCredentials.create("test", "test")))
     .build();
-
 client.createTable(b -> b
     .tableName("demo-table")
     .billingMode(BillingMode.PAY_PER_REQUEST)
@@ -376,7 +342,6 @@ client.createTable(b -> b
         AttributeDefinition.builder().attributeName("pk").attributeType(ScalarAttributeType.S).build())
     .keySchema(
         KeySchemaElement.builder().attributeName("pk").keyType(KeyType.HASH).build()));
-
 System.out.println(client.listTables().tableNames());
 ```
 
@@ -387,7 +352,6 @@ System.out.println(client.listTables().tableNames());
 
 ```python
 import boto3
-
 client = boto3.client(
     "ssm",
     endpoint_url="http://localhost:4566",
@@ -395,14 +359,12 @@ client = boto3.client(
     aws_access_key_id="test",
     aws_secret_access_key="test",
 )
-
 client.put_parameter(
     Name="/demo/app/message",
-    Value="hello from floci",
+    Value="hello from bespin",
     Type="String",
     Overwrite=True,
 )
-
 response = client.get_parameter(Name="/demo/app/message")
 print(response["Parameter"]["Value"])
 ```
@@ -414,17 +376,15 @@ print(response["Parameter"]["Value"])
 
 ```javascript
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
-
 const client = new SQSClient({
   endpoint: "http://localhost:4566",
   region: "us-east-1",
   credentials: { accessKeyId: "test", secretAccessKey: "test" },
 });
-
 await client.send(
   new SendMessageCommand({
     QueueUrl: "http://localhost:4566/000000000000/demo-queue",
-    MessageBody: "hello from floci",
+    MessageBody: "hello from bespin",
   }),
 );
 ```
@@ -441,7 +401,6 @@ import (
     "context"
     "fmt"
     "log"
-
     "github.com/aws/aws-sdk-go-v2/config"
     "github.com/aws/aws-sdk-go-v2/credentials"
     "github.com/aws/aws-sdk-go-v2/service/s3"
@@ -458,16 +417,13 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-
     client := s3.NewFromConfig(cfg, func(o *s3.Options) {
         o.UsePathStyle = true
     })
-
     out, err := client.ListBuckets(context.TODO(), nil)
     if err != nil {
         log.Fatal(err)
     }
-
     fmt.Println(out.Buckets)
 }
 ```
@@ -485,20 +441,17 @@ use aws_sdk_secretsmanager::Client;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(Region::new("us-east-1"))
-        .credentials_provider(Credentials::new("test", "test", None, None, "floci"))
+        .credentials_provider(Credentials::new("test", "test", None, None, "bespin"))
         .endpoint_url("http://localhost:4566")
         .load()
         .await;
-
     let client = Client::new(&config);
-
     client
         .create_secret()
         .name("demo/secret")
-        .secret_string("hello from floci")
+        .secret_string("hello from bespin")
         .send()
         .await?;
-
     Ok(())
 }
 ```
@@ -512,7 +465,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=us-east-1
-
 aws --endpoint-url http://localhost:4566 s3 mb s3://my-bucket
 aws --endpoint-url http://localhost:4566 s3 ls
 ```
@@ -521,7 +473,7 @@ aws --endpoint-url http://localhost:4566 s3 ls
 
 ## Testcontainers
 
-Floci has Testcontainers modules for starting isolated Floci instances directly from tests. This avoids shared state, manual daemon setup, and port conflicts.
+BesPIN is wire-compatible with Floci's Testcontainers modules. Use the upstream packages directly — they work without any changes.
 
 | Language | Package | Latest | Registry | Source |
 |---|---|---|---|---|
@@ -545,26 +497,22 @@ Floci has Testcontainers modules for starting isolated Floci instances directly 
 ```java
 @Testcontainers
 class S3IntegrationTest {
-
     @Container
-    static FlociContainer floci = new FlociContainer();
+    static FlociContainer bespin = new FlociContainer();
 
     @Test
     void shouldCreateBucket() {
         S3Client s3 = S3Client.builder()
-                .endpointOverride(URI.create(floci.getEndpoint()))
-                .region(Region.of(floci.getRegion()))
+                .endpointOverride(URI.create(bespin.getEndpoint()))
+                .region(Region.of(bespin.getRegion()))
                 .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(floci.getAccessKey(), floci.getSecretKey())))
+                        AwsBasicCredentials.create(bespin.getAccessKey(), bespin.getSecretKey())))
                 .forcePathStyle(true)
                 .build();
-
         s3.createBucket(b -> b.bucket("my-bucket"));
     }
 }
 ```
-
-For Testcontainers 2.x / Spring Boot 4.x, use version `2.5.0`.
 
 </details>
 
@@ -580,27 +528,26 @@ import { FlociContainer } from "@floci/testcontainers";
 import { S3Client, CreateBucketCommand } from "@aws-sdk/client-s3";
 
 describe("S3", () => {
-  let floci: FlociContainer;
+  let bespin: FlociContainer;
 
   beforeAll(async () => {
-    floci = await new FlociContainer().start();
+    bespin = await new FlociContainer().start();
   });
 
   afterAll(async () => {
-    await floci.stop();
+    await bespin.stop();
   });
 
   it("creates a bucket", async () => {
     const s3 = new S3Client({
-      endpoint: floci.getEndpoint(),
-      region: floci.getRegion(),
+      endpoint: bespin.getEndpoint(),
+      region: bespin.getRegion(),
       credentials: {
-        accessKeyId: floci.getAccessKey(),
-        secretAccessKey: floci.getSecretKey(),
+        accessKeyId: bespin.getAccessKey(),
+        secretAccessKey: bespin.getSecretKey(),
       },
       forcePathStyle: true,
     });
-
     await s3.send(new CreateBucketCommand({ Bucket: "my-bucket" }));
   });
 });
@@ -619,71 +566,49 @@ pip install testcontainers-floci
 import boto3
 from testcontainers_floci import FlociContainer
 
-
 def test_s3_create_bucket():
-    with FlociContainer() as floci:
+    with FlociContainer() as bespin:
         s3 = boto3.client(
             "s3",
-            endpoint_url=floci.get_endpoint(),
-            region_name=floci.get_region(),
-            aws_access_key_id=floci.get_access_key(),
-            aws_secret_access_key=floci.get_secret_key(),
+            endpoint_url=bespin.get_endpoint(),
+            region_name=bespin.get_region(),
+            aws_access_key_id=bespin.get_access_key(),
+            aws_secret_access_key=bespin.get_secret_key(),
         )
         s3.create_bucket(Bucket="my-bucket")
 ```
 
 </details>
 
-## Compatibility Testing
-
-The [`compatibility-tests`](./compatibility-tests/) directory validates Floci across SDKs and tooling workflows.
-
-| Module | Language / Tool | SDK / Client | Tests |
-|---|---|---|---:|
-| `sdk-test-java` | Java 17 | AWS SDK for Java v2 | 899 |
-| `sdk-test-node` | Node.js | AWS SDK for JavaScript v3 | 366 |
-| `sdk-test-python` | Python 3 | boto3 | 272 |
-| `sdk-test-go` | Go | AWS SDK for Go v2 | 144 |
-| `sdk-test-awscli` | Bash | AWS CLI v2 | 152 |
-| `sdk-test-rust` | Rust | AWS SDK for Rust | 90 |
-| `compat-terraform` | Terraform | v1.10+ | 14 |
-| `compat-opentofu` | OpenTofu | v1.9+ | 14 |
-| `compat-cdk` | AWS CDK | v2+ | 17 |
-
-**1,968 automated compatibility tests across 6 SDKs and 3 IaC tools.**
-
 ## Migrating from LocalStack
 
-Floci is a drop-in replacement for LocalStack Community. The port, credentials, SDK configuration, and CLI endpoint pattern work the same way. Swap the image and keep going.
+BesPIN is a drop-in replacement for LocalStack Community. The port, credentials, SDK configuration, and CLI endpoint pattern work the same way.
 
 ```yaml
 # Before
 image: localstack/localstack
 
-# After, standard image
+# After
 image: floci/floci:latest
-
-# After, if init scripts need AWS CLI or boto3
-image: floci/floci:latest-compat
 ```
 
 LocalStack environment variables are translated automatically:
 
-| LocalStack | Floci equivalent |
+| LocalStack | BesPIN equivalent |
 |---|---|
-| `LOCALSTACK_HOST` | `FLOCI_HOSTNAME` |
-| `PERSISTENCE=1` | `FLOCI_STORAGE_MODE=persistent` |
-| `LAMBDA_DOCKER_NETWORK` | `FLOCI_SERVICES_LAMBDA_DOCKER_NETWORK` |
-| `LAMBDA_REMOVE_CONTAINERS=1` | `FLOCI_SERVICES_LAMBDA_EPHEMERAL=true` |
+| `LOCALSTACK_HOST` | `BESPIN_HOSTNAME` |
+| `PERSISTENCE=1` | `BESPIN_STORAGE_MODE=persistent` |
+| `LAMBDA_DOCKER_NETWORK` | `BESPIN_SERVICES_LAMBDA_DOCKER_NETWORK` |
+| `LAMBDA_REMOVE_CONTAINERS=1` | `BESPIN_SERVICES_LAMBDA_EPHEMERAL=true` |
 | `DEBUG=1` | `QUARKUS_LOG_LEVEL=DEBUG` |
 
-Init scripts mounted under `/etc/localstack/init/` run unchanged. The `/_localstack/init` and `/_localstack/health` endpoints are still served. Set `LOCALSTACK_PARITY=false` to opt out of automatic translation.
+Init scripts mounted under `/etc/localstack/init/` run unchanged. The `/_localstack/init` and `/_localstack/health` endpoints are still served.
 
-See the [full migration guide](https://floci.io/floci/getting-started/migrate-from-localstack/).
+See the [Floci migration guide](https://floci.io/floci/getting-started/migrate-from-localstack/) for full details.
 
 ## Image Tags
 
-Every tag combines a variant and a channel.
+BesPIN uses the upstream Floci image directly. Every tag combines a variant and a channel.
 
 | Channel | Standard | Compat with AWS CLI and boto3 |
 |---|---|---|
@@ -691,8 +616,6 @@ Every tag combines a variant and a channel.
 | Release, pinned | `x.y.z` | `x.y.z-compat` |
 | Nightly, floating | `nightly` | `nightly-compat` |
 | Nightly, dated | `nightly-mmddyyyy` | `nightly-mmddyyyy-compat` |
-
-Use `latest` for stable releases, a pinned version for reproducible builds, and `nightly` to track `main`.
 
 ```yaml
 # Recommended
@@ -703,72 +626,45 @@ image: floci/floci:latest-compat
 
 # Pinned release
 image: floci/floci:1.5.11
-
-# Track main
-image: floci/floci:nightly
 ```
 
 ## Configuration
 
-All settings are overridable through environment variables with the `FLOCI_` prefix.
+All settings are overridable through environment variables with the `BESPIN_` prefix (mapped to the underlying `FLOCI_` variables).
 
 | Variable | Default | Description |
 |---|---|---|
-| `FLOCI_PORT` | `4566` | Port exposed by the Floci API |
-| `FLOCI_DEFAULT_REGION` | `us-east-1` | Default AWS region |
-| `FLOCI_DEFAULT_ACCOUNT_ID` | `000000000000` | Default AWS account ID |
-| `FLOCI_BASE_URL` | `http://localhost:4566` | Base URL used when Floci returns service URLs |
-| `FLOCI_HOSTNAME` | Unset | Hostname used in returned URLs when Floci runs inside Docker Compose |
-| `FLOCI_STORAGE_MODE` | `memory` | Storage mode: `memory`, `persistent`, `hybrid`, or `wal` |
-| `FLOCI_STORAGE_PERSISTENT_PATH` | `./data` | Directory used for persisted state |
-| `FLOCI_ECR_BASE_URI` | `public.ecr.aws` | ECR base URI used when pulling container images |
-
-Full reference: [configuration docs](https://floci.io/floci/configuration/advanced/application-yml)
+| `BESPIN_PORT` | `4566` | Port exposed by the BesPIN API |
+| `BESPIN_DEFAULT_REGION` | `us-east-1` | Default AWS region |
+| `BESPIN_DEFAULT_ACCOUNT_ID` | `000000000000` | Default AWS account ID |
+| `BESPIN_BASE_URL` | `http://localhost:4566` | Base URL used when BesPIN returns service URLs |
+| `BESPIN_HOSTNAME` | Unset | Hostname used in returned URLs when BesPIN runs inside Docker Compose |
+| `BESPIN_STORAGE_MODE` | `memory` | Storage mode: `memory`, `persistent`, `hybrid`, or `wal` |
+| `BESPIN_STORAGE_PERSISTENT_PATH` | `./data` | Directory used for persisted state |
+| `BESPIN_ECR_BASE_URI` | `public.ecr.aws` | ECR base URI used when pulling container images |
 
 ### Multi-container Docker Compose
 
-When your application runs in a different container, set `FLOCI_HOSTNAME` to the Floci service name so returned URLs, such as SQS `QueueUrl` values, resolve correctly.
+When your application runs in a different container, set `BESPIN_HOSTNAME` to the BesPIN service name so returned URLs resolve correctly.
 
 ```yaml
 services:
-  floci:
+  bespin:
     image: floci/floci:latest
     ports:
       - "4566:4566"
     environment:
-      - FLOCI_HOSTNAME=floci
+      - BESPIN_HOSTNAME=bespin
 
   my-app:
     environment:
-      - AWS_ENDPOINT_URL=http://floci:4566
+      - AWS_ENDPOINT_URL=http://bespin:4566
     depends_on:
-      - floci
+      - bespin
 ```
-
-Without this, services may return URLs using `localhost`, which points to the wrong container from the application container.
-
-## Community
-
-Join the Floci community on [Slack](https://join.slack.com/t/floci/shared_invite/zt-3tjn02s3q-A00kEjJ1cZxsg_imTfy6Cw) or [GitHub Discussions](https://github.com/orgs/floci-io/discussions). Feature ideas, compatibility questions, design tradeoffs, and rough proposals are welcome.
-
-## Star History
-
-<p align="center">
-  <a href="https://www.star-history.com/?repos=floci-io%2Ffloci&type=date&legend=top-left">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=floci-io/floci&type=date&theme=dark&legend=top-left" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=floci-io/floci&type=date&legend=top-left" />
-      <img width="600" alt="Star History Chart" src="https://api.star-history.com/chart?repos=floci-io/floci&type=date&legend=top-left" />
-    </picture>
-  </a>
-</p>
-
-## Contributors
-
-<a href="https://github.com/floci-io/floci/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=floci-io/floci&max=100&columns=20" />
-</a>
 
 ## License
 
-MIT. Use it however you want.
+MIT. Fork it, embed it, extend it. No "community edition" sunset. No carbonite.
+
+> *Based on [Floci](https://github.com/floci-io/floci) by [@hectorvent](https://github.com/hectorvent) and the floci-io team.*
